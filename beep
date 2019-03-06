@@ -69,9 +69,13 @@ int Parse_input(char *input, char *delimiters, char **output)
     }
     return i;
 }
-void exec_call(char *argument_list[10000], char *command)
+void exec_call(char *argument_list[100], char *command)
 {
 
+    if (!strcmp(command, ""))
+    {
+        return;
+    }
     int pid = fork();
     if (pid == -1)
     {
@@ -100,22 +104,21 @@ int command_check(char *command)
         {
             return 1;
         }
-        if (!strcmp(command, "2>&1"))
-        {
-            return 3;
-        }
         if (command[0] == '2' && command[1] == '>')
         {
             return 2;
         }
-       
+        if (!strcmp(command, "2>&1"))
+        {
+            return 3;
+        }
     }
     return 0;
 }
 void run_single_command(char *input)
 {
-    char *args[10000];
-    char *argument_list[10000];
+    char *args[100];
+    char *argument_list[100];
     int args_size = Parse_input(input, " ", args);
     char *input_file;
     char *output_file;
@@ -126,81 +129,74 @@ void run_single_command(char *input)
     int in_num = dup(0);
     int out_num = dup(1);
     int check_flag;
-    int err_flag = 0;
+    int err_flag=0;
     for (int i = 0; i < args_size; i++)
     {
-        
-        check_flag = command_check(args[i]);
-        if (!check_flag)
+        check_flag=command_check(args[i]);
+        if(!check_flag){
+        if (strcmp(args[i], ">") == 0)
         {
-            if (strcmp(args[i], ">") == 0)
+            if (i == args_size - 1)
             {
-                if (i == args_size - 1)
-                {
-                    printf("Syntax error for output redirection. Please specify a file to output to \n");
-                }
-                else
-                {
-                    flagout = 1;
-                    output_file = args[i + 1];
-                    i++;
-                    if (access(output_file, F_OK) == -1)
-                    {
-                        FILE *fp = fopen(output_file, "w");
-                        fclose(fp);
-                    }
-                }
-            }
-            else if (strcmp(args[i], "<") == 0)
-            {
-                if (i == args_size - 1)
-                {
-                    printf("Syntax error for input redirection. Please specify a file to input from \n");
-                }
-                else
-                {
-                    flagin = 1;
-                    input_file = args[i + 1];
-                    i++;
-                }
-            }
-            else if (strcmp(args[i], ">>") == 0)
-            {
-                if (i == args_size - 1)
-                {
-                    printf("Syntax error for output append. Please specify a file to append to \n");
-                }
-                else
-                {
-                    flagapp = 1;
-                    output_file = args[i + 1];
-                    i++;
-                    if (access(output_file, F_OK) == -1)
-                    {
-                        FILE *fp = fopen(output_file, "w");
-                        fclose(fp);
-                    }
-                }
+                printf("Syntax error for output redirection. Please specify a file to output to \n");
             }
             else
             {
-
-                argument_list[counter] = args[i];
-                counter++;
+                flagout = 1;
+                output_file = args[i + 1];
+                i++;
+                if (access(output_file, F_OK) == -1)
+                {
+                    FILE *fp = fopen(output_file, "w");
+                    fclose(fp);
+                }
+            }
+        }
+        else if (strcmp(args[i], "<") == 0)
+        {
+            if (i == args_size - 1)
+            {
+                printf("Syntax error for input redirection. Please specify a file to input from \n");
+            }
+            else
+            {
+                flagin = 1;
+                input_file = args[i + 1];
+                i++;
+            }
+        }
+        else if (strcmp(args[i], ">>") == 0)
+        {
+            if (i == args_size - 1)
+            {
+                printf("Syntax error for output append. Please specify a file to append to \n");
+            }
+            else
+            {
+                flagapp = 1;
+                output_file = args[i + 1];
+                i++;
+                if (access(output_file, F_OK) == -1)
+                {
+                    FILE *fp = fopen(output_file, "w");
+                    fclose(fp);
+                }
             }
         }
         else
         {
-            if (check_flag == 1 || check_flag == 2)
-            {
+
+            argument_list[counter] = args[i];
+            printf("%s\n",argument_list[counter]);
+            counter++;
+        }
+        }
+        else{
+            if(check_flag==1||check_flag==2){
                 char *file_name;
-                char **args_in = malloc(2 * sizeof(char *));
-                for (int j = 0; j < 2; ++j)
-                {
-                    args_in[j] = (char *)malloc(100);
-                }
-                int in_size = Parse_input(args[i], ">", args_in);
-                file_name=args_in[1];
+                char **args_in[2];
+                int in_size=Parse_input(args[i],">",args_in);
+                strcpy(file_name, args_in[1]);
                 flagout = 1;
                 output_file = file_name;
                 if (access(output_file, F_OK) == -1)
@@ -208,17 +204,11 @@ void run_single_command(char *input)
                     FILE *fp = fopen(output_file, "w");
                     fclose(fp);
                 }
-                if (check_flag == 2)
-                {
-                    err_flag = 1;
+                if(check_flag==2){
+                    err_flag=1;
                 }
-                //free(file_name);
-                // free(args_in[0]);
-                // free(args_in[1]);
-                // free(args_in);
             }
-            else
-            {
+            else{
                 dup2(1, 2);
             }
         }
@@ -247,7 +237,7 @@ void run_single_command(char *input)
         }
         else
         {
-             if(err_flag==1){
+            if(err_flag==1){
                 dup2(fileno(fout), 2);
             }
             else{
@@ -268,9 +258,9 @@ void run_single_command(char *input)
             dup2(fileno(fapp), 1);
         }
     }
-    if (strcmp(args[0], "cd"))
+    if (strcmp(argument_list[0], "cd"))
     {
-        exec_call(argument_list, args[0]);
+        exec_call(argument_list, argument_list[0]);
         if (fin)
         {
             dup2(in_num, 0);
@@ -305,7 +295,7 @@ void pipe_input(char **input, int size)
         pid = fork();
         if (pid == 0)
         {
-            dup2(fd_read, 0);
+            dup2(fd_read,0);
             if (i != (size - 1))
             {
                 dup2(fd[1], 1); // close and dup gives race conditions so use dup2
@@ -318,7 +308,7 @@ void pipe_input(char **input, int size)
         {
             wait(NULL);
             close(fd[1]);
-            fd_read = fd[0];
+            fd_read=fd[0];
         }
         else
         {
@@ -336,12 +326,8 @@ void start_shell()
         display_path();
         int pipe_req = 0;
         char *input_comand = malloc(255);
-        input_comand = take_input();
-        if (input_comand[0] == 0)
-        {
-            continue;
-        }
-        char *args[10000];
+        input_comand=take_input();
+        char *args[100];
         int args_size = Parse_input(input_comand, "|", args);
         if (args_size > 1)
         {
@@ -353,6 +339,7 @@ void start_shell()
             run_single_command(*args);
         }
         free(input_comand);
+
     } while (status);
 }
 int initialise_var()
