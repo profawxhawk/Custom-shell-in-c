@@ -132,6 +132,12 @@ int command_check(char *command)
     }
     return 0;
 }
+void free_space(char **arg,int size){
+for (int j = 0; j < size; j++)
+{
+    arg[j] = NULL;
+}
+}
 void run_single_command(char *input)
 {
     char *args[10000];
@@ -292,7 +298,8 @@ void run_single_command(char *input)
     }
     if (strcmp(args[0], "cd"))
     {
-        exec_call(argument_list, args[0]);
+        
+        exec_call(argument_list, argument_list[0]);
         if (fin)
         {
             dup2(in_num, 0);
@@ -308,6 +315,8 @@ void run_single_command(char *input)
             dup2(out_num, 1);
             fclose(fapp);
         }
+        free_space(argument_list,counter);
+       free_space(args,args_size);
     }
 }
 void pipe_input(char **input, int size)
@@ -389,8 +398,10 @@ void start_shell()
         }
         else
         {
+          
             run_single_command(*args);
         }
+        free_space(args,args_size);
         free(input_comand);
     } while (*status);
 }
