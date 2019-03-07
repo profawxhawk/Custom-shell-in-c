@@ -1,3 +1,13 @@
+/*
+# Custom-shell-in-c
+A custom shell written in c
+Done by group 13
+Members:-
+Agnel Aaron: 2017010
+Bharath Kumar: 2017035
+Shahid Nawaz Khan: 2017102
+Reference: https://stackoverflow.com/
+*/
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,6 +32,7 @@ void signal_handler(int signal)
     {
         kill(pid_to_kill, SIGINT);
     }
+    //signal(SIGINT, ctrl_c);
 }
 char *take_input()
 {
@@ -46,7 +57,7 @@ char *take_input()
             }
             in_string[i] = chary;
             i++;
-            if (i == 255)
+            if (i == 255)    // reallocate memory for every character after the buffer gets 255 characters 
             {
                 count++;
                 size = count * size;
@@ -61,6 +72,7 @@ char *take_input()
 void display_path()
 {
     printf(RED "USER:%s@" RESET GREEN "HOST:%s@" RESET PINK "PATH:%s$" RESET, user, hostname, cwd_path);
+    // to diplay the user, host and path of current woring directory in a colourful and attractive manner
 }
 int Parse_input(char *input, char *delimiters, char **output)
 {
@@ -86,7 +98,7 @@ void exec_call(char *argument_list[10000], char *command)
 {
 
     int pid = fork();
-    pid_to_kill=pid;
+    pid_to_kill=pid;    // store the pid of the child process which has to be killed on ^C
     if (pid == -1)
     {
         printf("Fork error. Unable to create child process \n");
@@ -145,7 +157,7 @@ void run_single_command(char *input)
     int args_size = Parse_input(input, " ", args);
     char *input_file;
     char *output_file;
-    int flagin = -0;
+    int flagin = 0;
     int flagout = 0;
     int flagapp = 0;
     int counter = 0;
@@ -155,13 +167,13 @@ void run_single_command(char *input)
     int err_flag = 0;
     for (int i = 0; i < args_size; i++)
     {
-        check_flag = command_check(args[i]);
+        check_flag = command_check(args[i]); // checks for default commands
         if(check_flag==4){
             return;
         }
         if (!check_flag)
         {
-            if (strcmp(args[i], ">") == 0)
+            if (strcmp(args[i], ">") == 0)    // create output file if it doesn't exist
             {
                 if (i == args_size - 1)
                 {
@@ -179,7 +191,7 @@ void run_single_command(char *input)
                     }
                 }
             }
-            else if (strcmp(args[i], "<") == 0)
+            else if (strcmp(args[i], "<") == 0)    // store the input file
             {
                 if (i == args_size - 1)
                 {
@@ -192,7 +204,7 @@ void run_single_command(char *input)
                     i++;
                 }
             }
-            else if (strcmp(args[i], ">>") == 0)
+            else if (strcmp(args[i], ">>") == 0)    // create output file if it doesn't exist
             {
                 if (i == args_size - 1)
                 {
@@ -219,7 +231,7 @@ void run_single_command(char *input)
         }
         else
         {
-            if (check_flag == 1 || check_flag == 2)
+            if (check_flag == 1 || check_flag == 2)    // check for 1 -> filename, 2 -> filename, 2>&1
             {
                 char *file_name;
                 char **args_in = malloc(2 * sizeof(char *));
@@ -252,6 +264,7 @@ void run_single_command(char *input)
         }
     }
     FILE *fin = NULL, *fout = NULL, *fapp = NULL;
+    // open all required files
     if (flagin == 1)
     {
         fin = fopen(input_file, "r");
@@ -296,10 +309,11 @@ void run_single_command(char *input)
             dup2(fileno(fapp), 1);
         }
     }
-    if (strcmp(args[0], "cd"))
-    {
-        
+    //if (strcmp(args[0], "cd"))
+    //{
+        // execute every command
         exec_call(argument_list, argument_list[0]);
+        // close all files
         if (fin)
         {
             dup2(in_num, 0);
@@ -317,14 +331,14 @@ void run_single_command(char *input)
         }
         free_space(argument_list,counter);
        free_space(args,args_size);
-    }
+    //}
 }
 void pipe_input(char **input, int size)
 {
     int pid;
     int fd[2];
     int ret;
-    int fd_read;
+    int fd_read;    // extra file descriptor used to take input from the read end
     for (int i = 0; i < size; i++)
     {
         
@@ -338,8 +352,8 @@ void pipe_input(char **input, int size)
         if (pid == 0)
         {
             close(0);
-            dup(fd_read);
-            if (*status == 0)
+            dup(fd_read);    // as f[0] has to be closed during piping in order to enable writing. Hence, we use fd_read descriptor to read
+            if (*status == 0) 
             {
                exit(1);
             }
@@ -376,30 +390,29 @@ void start_shell()
     signal(SIGINT, signal_handler);
     do
     {
-
-        display_path();
+        display_path();     // displays the user, hostname, and path
         int pipe_req = 0;
         char *input_comand = malloc(255);
-        input_comand = take_input();
+        input_comand = take_input();  // takes input of unknown length until it encounters newline character ('\n')
         if (input_comand[0] == 0)
         {
             continue;
         }
         char *args[10000];
-        int args_size = Parse_input(input_comand, "|", args);
+        int args_size = Parse_input(input_comand, "|", args);    // separates input based on location of '|' and stores it in args
         child_pid_counter=0;
         if (args_size > 1)
         {
             pipe_req = 1;
-            pipe_input(args, args_size);
+            pipe_input(args, args_size);     // If pipe was present, execute piping
             for(int j=0;j<child_pid_counter;j++){
-                    waitpid(child_pid[j], NULL, 0);
+                    waitpid(child_pid[j], NULL, 0);   // waits for all the children of the main program to exit
             }
         }
         else
         {
           
-            run_single_command(*args);
+            run_single_command(*args);    // if no pipe is present, run only one command
         }
         free_space(args,args_size);
         free(input_comand);
@@ -414,12 +427,14 @@ int initialise_var()
         exit(1);
     }
     int ret = gethostname(hostname, 1024);
+    //hostname gets userid of current system
     if (ret == -1)
     {
         printf("Couldn't load host \n");
         exit(1);
     }
     char *ret_1 = getcwd(cwd_path, 1024);
+    //cwd_path gets current path
     if (ret_1 == NULL)
     {
         printf("Couldn't get current path \n");
@@ -429,6 +444,7 @@ int initialise_var()
 int main()
 {
     status= mmap(NULL, sizeof *status, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    //Assigning heap memory for global exit check(between parent and child)
     initialise_var();
     start_shell();
 }
