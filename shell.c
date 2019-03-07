@@ -4,12 +4,25 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
+#define RED "\x1b[31m"
 #define GREEN "\x1b[32m"
-#define BLUE "\x1b[34m"
+#define PINK "\x1b[35m"
 #define RESET "\x1b[0m"
 char hostname[1024];
 char *user;
 char cwd_path[1024];
+int pid_to_kill=-1;
+static int *status; 
+int child_pid[200];
+int child_pid_counter=0;
+void signal_handler(int signal)
+{
+    if (pid_to_kill != -1)
+    {
+        kill(pid_to_kill, SIGINT);
+    }
+}
 char *take_input()
 {
     char *in_string = malloc(255);
@@ -47,7 +60,7 @@ char *take_input()
 }
 void display_path()
 {
-    printf(GREEN "%s@%s" RESET ":" BLUE "%s" RESET "$", user, hostname, cwd_path);
+    printf(RED "USER:%s@" RESET GREEN "HOST:%s@" RESET PINK "PATH:%s$" RESET, user, hostname, cwd_path);
 }
 int Parse_input(char *input, char *delimiters, char **output)
 {
@@ -73,6 +86,7 @@ void exec_call(char *argument_list[10000], char *command)
 {
 
     int pid = fork();
+    pid_to_kill=pid;
     if (pid == -1)
     {
         printf("Fork error. Unable to create child process \n");
@@ -86,10 +100,12 @@ void exec_call(char *argument_list[10000], char *command)
             printf("Unknown command \n");
             exit(0);
         }
+        exit(0);
     }
     else if (pid > 0)
     {
         wait(NULL);
+        pid_to_kill=-1;
     }
 }
 int command_check(char *command)
@@ -110,6 +126,10 @@ int command_check(char *command)
         }
        
     }
+    if(!strcmp(command,"exit")){
+        *status=0;
+        return 4;
+    }
     return 0;
 }
 void run_single_command(char *input)
@@ -129,8 +149,10 @@ void run_single_command(char *input)
     int err_flag = 0;
     for (int i = 0; i < args_size; i++)
     {
-        
         check_flag = command_check(args[i]);
+        if(check_flag==4){
+            return;
+        }
         if (!check_flag)
         {
             if (strcmp(args[i], ">") == 0)
@@ -296,6 +318,7 @@ void pipe_input(char **input, int size)
     int fd_read;
     for (int i = 0; i < size; i++)
     {
+        
         ret = pipe(fd);
         if (ret == -1)
         {
@@ -305,10 +328,16 @@ void pipe_input(char **input, int size)
         pid = fork();
         if (pid == 0)
         {
-            dup2(fd_read, 0);
+            close(0);
+            dup(fd_read);
+            if (*status == 0)
+            {
+               exit(1);
+            }
             if (i != (size - 1))
             {
-                dup2(fd[1], 1); // close and dup gives race conditions so use dup2
+                close(1);
+                dup(fd[1]);
             }
             close(fd[0]);
             run_single_command(*(input + i));
@@ -316,20 +345,26 @@ void pipe_input(char **input, int size)
         }
         else if (pid > 0)
         {
-            wait(NULL);
+            (child_pid[child_pid_counter])=pid;
+            child_pid_counter++;
+            if (*status == 0)
+            {
+                return;
+            }
             close(fd[1]);
             fd_read = fd[0];
         }
         else
         {
+
             printf("Unable to fork \n");
         }
     }
 }
 void start_shell()
 {
-    int status = 1;
-
+    *status = 1;
+    signal(SIGINT, signal_handler);
     do
     {
 
@@ -343,17 +378,21 @@ void start_shell()
         }
         char *args[10000];
         int args_size = Parse_input(input_comand, "|", args);
+        child_pid_counter=0;
         if (args_size > 1)
         {
             pipe_req = 1;
             pipe_input(args, args_size);
+            for(int j=0;j<child_pid_counter;j++){
+                    waitpid(child_pid[j], NULL, 0);
+            }
         }
         else
         {
             run_single_command(*args);
         }
         free(input_comand);
-    } while (status);
+    } while (*status);
 }
 int initialise_var()
 {
@@ -378,6 +417,7 @@ int initialise_var()
 }
 int main()
 {
+    status= mmap(NULL, sizeof *status, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     initialise_var();
     start_shell();
 }
