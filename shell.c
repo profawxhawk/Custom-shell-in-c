@@ -15,6 +15,8 @@ Reference: https://stackoverflow.com/
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
+#include <dirent.h>
+#include <errno.h>
 #define RED "\x1b[31m"
 #define GREEN "\x1b[32m"
 #define PINK "\x1b[35m"
@@ -309,8 +311,8 @@ void run_single_command(char *input)
             dup2(fileno(fapp), 1);
         }
     }
-    //if (strcmp(args[0], "cd"))
-    //{
+    if (strcmp(args[0], "cd"))
+    {
         // execute every command
         exec_call(argument_list, argument_list[0]);
         // close all files
@@ -331,7 +333,67 @@ void run_single_command(char *input)
         }
         free_space(argument_list,counter);
        free_space(args,args_size);
-    //}
+    }
+    else{
+        if(!argument_list[2]){
+        char original_path[1024];
+        for(int i=0;i<1024;i++){
+            original_path[i]=cwd_path[i];
+        }
+        //strcpy(original_path,cwd_path);
+        if(counter==1){
+            strcpy(cwd_path,"/");
+        }
+        else{
+            if(argument_list[1][0]=='/'){
+                 strcpy(cwd_path,argument_list[1]);
+            }
+            else if(!strcmp("..",argument_list[1])){
+                for(int i=strlen(cwd_path)-1;i>0;i--){
+                    if(cwd_path[i]=='/'){
+                        cwd_path[i]='\0';
+                        break;
+                    }
+                    cwd_path[i]='\0';
+                }
+            }
+            else{
+                if(strcmp("/",cwd_path)){
+                strcat(cwd_path,"/");
+                 }
+                strcat(cwd_path,argument_list[1]);
+            }
+        }
+    DIR* dir = opendir(cwd_path);
+    if (dir)
+    {
+        chdir(cwd_path);
+        closedir(dir);
+    }
+    else if (ENOENT == errno)
+    {
+        printf("cd: %s: Not a directory",cwd_path);
+        for(int i=0;i<1024;i++){
+            cwd_path[i]=original_path[i];
+        }
+        //strcpy(cwd_path,original_path);
+    }
+    else
+    {
+        printf("shell error Please command enter again");
+        for(int i=0;i<1024;i++){
+            cwd_path[i]=original_path[i];
+        }
+        //strcpy(cwd_path,original_path);
+    }
+    
+    }
+    else{
+            printf("cd only accepts one argument \n");
+    }
+    free_space(argument_list,counter);
+    free_space(args,args_size);
+}
 }
 void pipe_input(char **input, int size)
 {
